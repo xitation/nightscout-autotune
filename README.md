@@ -3,10 +3,14 @@ Use `oref0-autotune` on a nightscout instance.
 
 ## Description
 A small nodejs library that uses the oref0 reference implementation to run autotune on a Nightscout instance.
-It can be run as either a nodejs application or a Docker container.
+It can be run as either a nodejs application or a Docker container. 
+
+The Docker container now supports running autotune on a configurable schedule using cron, while maintaining full backward compatibility with one-shot execution.
 
 ## Getting started
 If you want to use the dockerized version of this app, just pull `houthacker42/wearenotwaiting/nightscout-autotune`, after you have ensured that the required dependencies have been installed.
+
+Or use one of the example docker-compose files found in the docker-compose directory.
 
 ### Dependencies
 #### Dockerized app
@@ -54,8 +58,44 @@ $ docker image pull ghcr.io/houthacker/nightscout-autotune:latest
 
   ```
 
-### Usage
-#### Dockerized app
+# Usage
+
+## Docker
+Docker can be run using CLI one-shot runs to generate a set of point in time data which you can then manually extract from the container with the steps defined in Option 1.
+
+OR
+
+You can run this as a service with the provided docker-compose config and a web server to allow viewing the generate profile info which can be configured to run on a cron schedule if you follow option 2.
+
+### Docker variables:
+#### New Cron-Specific Variables
+
+- **`CRON_SCHEDULE`**: Cron expression defining when to run autotune
+  - Format: Standard cron syntax (minute hour day month weekday)
+  - If not set: Container runs once and exits (original behavior)
+  - Example: `"0 2 * * *"` (daily at 2:00 AM)
+
+- **`RUN_ON_STARTUP`**: Whether to run autotune immediately when container starts
+  - Values: `true` or `false`
+  - Default: `false`
+  - Only applies when `CRON_SCHEDULE` is set
+
+#### Existing Variables (Unchanged)
+All existing environment variables work exactly as before:
+- `NS_HOST` (required)
+- `AUTOTUNE_DAYS` (required)
+- `UAM_AS_BASAL` (required)
+- `NS_API_SECRET` (optional)
+- `NS_TOKEN` (optional)
+- `NS_PROFILE` (optional)
+- `MIN_5MIN_CARBIMPACT` (optional)
+- `AUTOSENS_MIN` (optional)
+- `AUTOSENS_MAX` (optional)
+- `INSULIN_TYPE` (optional)
+- `OPENAPS_WORKDIR` (optional, default: `/tmp/autotune`)
+- `HTML_EXPORT` (optional, default: `false`)
+
+### Option 1: Docker via cli:
 Run the image without arguments to see its usage description and examples
 ```bash
 $ docker run --rm ghcr.io/houthacker/nightscout-autotune:latest
@@ -68,7 +108,55 @@ $ docker cp $(docker ps -a|grep nightscout-autotune|awk '{print $1}')/tmp/autotu
 $ open <local path>
 ```
 
-#### Standalone app
+### Option2: Docker compose with web server and cron:
+When using the docker-compose method, the container will run as a background service and will run the profile generation task via configured cron schedule. 
+You can view the generated profile using a web browser making it easy and convinient to have a new updated profile generated once a day and easy to view while you work out your new AAPS/OpenAPS profiles.
+
+```
+services:
+  nightscout-autotune:
+    image: ghcr.io/houthacker/nightscout-autotune:latest
+    container_name: nightscout-autotune
+    restart: unless-stopped
+    environment:
+      CRON_SCHEDULE: "0 2 * * *"        # Daily at 2:00 AM
+      RUN_ON_STARTUP: "true"
+      NS_HOST: "https://my.nightscout.host"
+      AUTOTUNE_DAYS: "7"                # Shorter analysis window
+      UAM_AS_BASAL: "false"
+      HTML_EXPORT: "true"
+      NS_TOKEN: "${NS_TOKEN}"
+    volumes:
+      - ./autotune-data:/tmp/autotune
+
+  autotune-web:
+    image: nginx:alpine
+    container_name: nightscout-autotune-web
+    restart: unless-stopped
+    ports:
+      - "8080:80"                       # Access at http://localhost:8080
+    volumes:
+      - ./autotune-data:/usr/share/nginx/html/reports:ro  # Read-only mount
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/index.html:/usr/share/nginx/html/index.html:ro
+    depends_on:
+      - autotune-daily
+
+```
+
+Make any environment changes require to suit your setup, e.g. make sure the NS_HOST: points to your NS URL and that if you have a locked down deployment you define the NS_TOKEN.
+
+You can configure when the background job runs by modifying the CRON_SCHEDULE value, if you are not across how to define a cron schedule, I recommend this site to help - https://crontab.guru/.
+
+After modifying your docker-compose.yml to match your environmet run the following to bring up the containers:
+
+```
+$ docker compose up -d
+```
+
+Then open a web browser and browse to http://[your server ip running docker]:8080
+
+## Standalone app
 Run the app without arguments or with `--help` to see its usage description and examples.
 ```bash
 # If installed globally

@@ -1,0 +1,28 @@
+services:
+  nightscout-autotune:
+    image: ghcr.io/houthacker/nightscout-autotune:latest
+    container_name: nightscout-autotune
+    restart: unless-stopped
+    environment:
+      CRON_SCHEDULE: "0 2 * * *"        # Daily at 2:00 AM
+      RUN_ON_STARTUP: "true"
+      NS_HOST: "https://my.nightscout.host"
+      AUTOTUNE_DAYS: "7"                # Shorter analysis window
+      UAM_AS_BASAL: "false"
+      HTML_EXPORT: "true"
+      NS_TOKEN: "${NS_TOKEN}"
+    volumes:
+      - ./autotune-data:/tmp/autotune
+
+  autotune-web:
+    image: nginx:alpine
+    container_name: nightscout-autotune-web
+    restart: unless-stopped
+    ports:
+      - "8080:80"                       # Access at http://localhost:8080
+    volumes:
+      - ./autotune-data:/usr/share/nginx/html/reports:ro  # Read-only mount
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/index.html:/usr/share/nginx/html/index.html:ro
+    depends_on:
+      - autotune-daily
