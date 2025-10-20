@@ -1,0 +1,46 @@
+services:
+  autotune-complete:
+    image: ghcr.io/houthacker/nightscout-autotune:latest
+    container_name: nightscout-autotune-complete
+    restart: unless-stopped
+    environment:
+      # Cron settings
+      CRON_SCHEDULE: "0 2 * * *"
+      RUN_ON_STARTUP: "true"
+      
+      # Required settings
+      NS_HOST: "https://my.nightscout.host"
+      AUTOTUNE_DAYS: "10"
+      UAM_AS_BASAL: "false"
+      
+      # Optional Nightscout settings
+      NS_PROFILE: "My Profile"          # Use specific profile instead of default
+      NS_TOKEN: "${NS_TOKEN}"
+      
+      # Optional autotune parameters
+      MIN_5MIN_CARBIMPACT: "8.0"
+      AUTOSENS_MIN: "0.7"
+      AUTOSENS_MAX: "1.2"
+      INSULIN_TYPE: "rapid-acting"      # or "ultra-rapid"
+      
+      # Optional processing settings
+      OPENAPS_WORKDIR: "/tmp/autotune"
+      HTML_EXPORT: "true"
+    volumes:
+      - autotune-complete:/tmp/autotune
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Optional: add healthcheck
+    # healthcheck:
+    #   test: ["CMD", "test", "-f", "/tmp/autotune/autotune/autotune_recommendations.log"]
+    #   interval: 1h
+    #   timeout: 10s
+    #   retries: 3
+
+volumes:
+  autotune-data:
+  autotune-data-frequent:
+  autotune-complete:

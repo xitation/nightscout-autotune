@@ -1,0 +1,15 @@
+services:
+  autotune-oneshot:
+    image: ghcr.io/houthacker/nightscout-autotune:latest
+    container_name: nightscout-autotune-oneshot
+    # No restart policy - runs once and exits
+    environment:
+      # NO CRON_SCHEDULE - runs once and exits
+      NS_HOST: "https://my.nightscout.host"
+      AUTOTUNE_DAYS: "10"
+      UAM_AS_BASAL: "false"
+      HTML_EXPORT: "true"
+      NS_TOKEN: "${NS_TOKEN}"
+    volumes:
+      - ./autotune-oneshot:/tmp/autotune
+
